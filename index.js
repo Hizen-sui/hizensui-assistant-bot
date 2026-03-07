@@ -5,8 +5,9 @@ const axios = require('axios');
 const { Anthropic } = require('@anthropic-ai/sdk');
 
 // 環境変数の取得
+// 環境変数の取得 (複数の可能性をチェック)
 const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || process.env.claudeAntholopic_API_Key;
 const PORT = process.env.PORT || 3000;
 
 if (!TELEGRAM_TOKEN || !ANTHROPIC_API_KEY) {
@@ -38,6 +39,7 @@ async function processMessage(text) {
     const response = await anthropic.messages.create({
       model: "claude-3-5-sonnet-20240620",
       max_tokens: 1024,
+      system: "あなたは Hizen sui株式会社（肥前翆）のアシスタント AI です。会社は肥前（佐賀）の陶磁器や金継ぎを欧州のラグジュアリー市場へ展開しています。代表は高校時代から環境問題に取り組み、以前は昆虫食事業（iF株式会社）を行っていましたが、現在は伝統工芸の再定義に注力しています。主要な実績として、フォーシーズンズホテル丸の内の『SÉZANNE』との契約があります。",
       messages: [{ role: "user", content: text }],
     });
     return response.content[0].text;
