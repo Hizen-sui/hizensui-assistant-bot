@@ -21,6 +21,11 @@ const anthropic = new Anthropic({
 const app = express();
 app.use(bodyParser.json());
 
+// ルートパスにアクセスした際の確認用
+app.get('/', (req, res) => {
+  res.send('Telegram Bot is running!');
+});
+
 // Telegram API メソッド
 const telegramApi = `https://api.telegram.org/bot${TELEGRAM_TOKEN}`;
 
