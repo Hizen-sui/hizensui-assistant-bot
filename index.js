@@ -10,8 +10,7 @@ const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const PORT = process.env.PORT || 3000;
 
 if (!TELEGRAM_TOKEN || !ANTHROPIC_API_KEY) {
-  console.error('Error: TELEGRAM_BOT_TOKEN or ANTHROPIC_API_KEY is not defined in .env file');
-  process.exit(1);
+  console.error('Error: TELEGRAM_BOT_TOKEN or ANTHROPIC_API_KEY is not defined');
 }
 
 // Anthropic クライアントの初期化
@@ -76,8 +75,13 @@ app.post(`/webhook/${TELEGRAM_TOKEN}`, async (req, res) => {
   res.sendStatus(200);
 });
 
-// サーバーの起動
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-  console.log(`Webhook endpoint: /webhook/${TELEGRAM_TOKEN}`);
-});
+// サーバーの起動 (ローカル実行時のみ)
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+    console.log(`Webhook endpoint: /webhook/${TELEGRAM_TOKEN}`);
+  });
+}
+
+// Vercel 用に app をエクスポート
+module.exports = app;
