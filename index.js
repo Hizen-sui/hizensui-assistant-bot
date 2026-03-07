@@ -13,9 +13,9 @@ if (!TELEGRAM_TOKEN || !ANTHROPIC_API_KEY) {
   console.error('Error: TELEGRAM_BOT_TOKEN or ANTHROPIC_API_KEY is not defined');
 }
 
-// Anthropic クライアントの初期化
+// Anthropic クライアントの初期化 (apiKeyが未定義でもインスタンス化自体は行い、使用時にエラーをチェックします)
 const anthropic = new Anthropic({
-  apiKey: ANTHROPIC_API_KEY,
+  apiKey: ANTHROPIC_API_KEY || 'MISSING_KEY',
 });
 
 const app = express();
@@ -31,6 +31,9 @@ const telegramApi = `https://api.telegram.org/bot${TELEGRAM_TOKEN}`;
 
 // メッセージ処理エンジン
 async function processMessage(text) {
+  if (!ANTHROPIC_API_KEY || ANTHROPIC_API_KEY === 'MISSING_KEY') {
+    return "エラー: Anthropic APIキーが設定されていません。Vercelの環境変数を確認してください。";
+  }
   try {
     const response = await anthropic.messages.create({
       model: "claude-3-5-sonnet-20240620",
