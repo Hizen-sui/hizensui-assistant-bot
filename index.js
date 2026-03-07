@@ -58,7 +58,7 @@ app.post(`/webhook/${TELEGRAM_TOKEN}`, async (req, res) => {
     if (incomingText === '/start') {
       await axios.post(`${telegramApi}/sendMessage`, {
         chat_id: chatId,
-        text: "こんにちは！Claude 搭載のアシスタントボットです。メッセージを送ってください。"
+        text: "こんにちは！Vercel上で動いているClaudeボットです。接続テスト成功です！メッセージをどうぞ。"
       });
       return res.sendStatus(200);
     }
