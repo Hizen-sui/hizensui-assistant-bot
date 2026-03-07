@@ -40,7 +40,9 @@ async function processMessage(text) {
     return response.content[0].text;
   } catch (error) {
     console.error('Claude API Error:', error);
-    return "申し訳ありません。メッセージの処理中にエラーが発生しました。";
+    // 詳細なエラー内容を返信に含める（デバッグ用）
+    const errorDetail = error.response ? JSON.stringify(error.response.data) : error.message;
+    return `申し訳ありません。エラーが発生しました。\n詳細: ${errorDetail}`;
   }
 }
 
