@@ -50,17 +50,14 @@ app.post(`/webhook/${TELEGRAM_TOKEN}`, async (req, res) => {
 
   if (message && message.text) {
     const chatId = message.chat.id;
-    const incomingText = message.text;
+    let incomingText = message.text;
 
     console.log(`Received message from ${chatId}: ${incomingText}`);
 
-    // コマンドの処理 (簡易版)
+    // /start の場合は、Claude に「挨拶をして」という文脈で処理させるか、
+    // あるいはそのまま Claude に渡します。ここではシンプルにそのまま渡します。
     if (incomingText === '/start') {
-      await axios.post(`${telegramApi}/sendMessage`, {
-        chat_id: chatId,
-        text: "こんにちは！Vercel上で動いているClaudeボットです。接続テスト成功です！メッセージをどうぞ。"
-      });
-      return res.sendStatus(200);
+      incomingText = "こんにちは。自己紹介をして、何ができるか教えてください。";
     }
 
     // Claude でメッセージを処理
