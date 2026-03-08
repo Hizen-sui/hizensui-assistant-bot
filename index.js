@@ -60,9 +60,12 @@ app.get('/', (req, res) => {
 // Telegram API メソッド
 const telegramApi = `https://api.telegram.org/bot${TELEGRAM_TOKEN}`;
 
-// GitHub 設定 (承認連携用)
+// GitHub 設定 (共通)
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const GITHUB_REPO = process.env.GITHUB_REPO;
+
+if (!GITHUB_TOKEN) console.warn('⚠️ Warning: GITHUB_TOKEN is not defined');
+if (!GITHUB_REPO) console.warn('⚠️ Warning: GITHUB_REPO is not defined');
 
 // 新規: メッセージを複数メッセージに分割送信
 async function sendSplitMessages(chatId, text, maxLength = 4096, customToken = null) {
@@ -221,9 +224,13 @@ async function saveApprovalStatus(workflowId, status) {
  * @param {string} userReply ユーザーの返信
  */
 async function saveIdeaToNewProjects(originalIdea, userReply) {
-  if (!GITHUB_TOKEN || !GITHUB_REPO) {
-    console.error('GITHUB_TOKEN or GITHUB_REPO is missing');
-    return false;
+  // スコープ外で undefined になるのを防ぐため、関数内でも再確認/再取得を試みる
+  const token = GITHUB_TOKEN || process.env.GITHUB_TOKEN;
+  const repo = GITHUB_REPO || process.env.GITHUB_REPO;
+
+  if (!token || !repo) {
+    console.error(`[GitHub] Critical error: Missing config. Token: ${!!token}, Repo: ${repo}`);
+    return { error: 'config_missing' };
   }
 
   // アイデア名（コンセプト名）を抽出する試み
@@ -275,12 +282,11 @@ ${originalIdea}
     });
 
     console.log(`✅ Idea saved to GitHub: ${path}`);
-    return fileName;
+    return { fileName };
   } catch (error) {
     const errorMsg = error.response ? JSON.stringify(error.response.data) : error.message;
     console.error('GitHub API Error (saveIdea):', errorMsg);
-    // エラーオブジェクトを返して呼び出し元で詳細を表示できるようにする（将来用）
-    return false;
+    return { error: errorMsg };
   }
 }
 
@@ -410,27 +416,28 @@ app.post(`/webhook/${FINAL_INNOVATOR_TOKEN}`, async (req, res) => {
         console.log(`[Innovator] Received reply to an idea: ${incomingText}`);
 
         // 診断メッセージを送信
+        const currentRepo = process.env.GITHUB_REPO || GITHUB_REPO || "NOT_FOUND";
         try {
           await axios.post(`https://api.telegram.org/bot${FINAL_INNOVATOR_TOKEN}/sendMessage`, {
             chat_id: chatId,
-            text: `⏳ アイデアの保存処理を開始しました... (GitHub: ${GITHUB_REPO})`,
+            text: `⏳ アイデアの保存処理を開始しました...\n(Repository: ${currentRepo})`,
           });
         } catch (e) {
           console.error('[Innovator] Failed to send diagnostic message:', e.message);
         }
 
         const originalIdea = message.reply_to_message.text;
-        const fileName = await saveIdeaToNewProjects(originalIdea, incomingText);
+        const result = await saveIdeaToNewProjects(originalIdea, incomingText);
 
-        if (fileName) {
+        if (result.fileName) {
           await axios.post(`https://api.telegram.org/bot${FINAL_INNOVATOR_TOKEN}/sendMessage`, {
             chat_id: chatId,
-            text: `✅ アイデアを保存しました！\nファイル名: ${fileName}\n場所: 00_Company/04_new projects/`,
+            text: `✅ アイデアを保存しました！\nファイル名: ${result.fileName}\n場所: 00_Company/04_new projects/`,
           });
         } else {
           await axios.post(`https://api.telegram.org/bot${FINAL_INNOVATOR_TOKEN}/sendMessage`, {
             chat_id: chatId,
-            text: `❌ 保存に失敗しました。GitHubの設定またはログを確認してください。`,
+            text: `❌ 保存に失敗しました。\n原因: ${result.error || '不明なエラー'}\n\nGitHubの権限（GITHUB_TOKEN）またはリポジトリ名（GITHUB_REPO）が正しいか、Vercelの環境変数を確認してください。`,
           });
         }
       } else if (incomingText === '/start') {
