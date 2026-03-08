@@ -252,7 +252,11 @@ ${originalIdea}
 `;
 
   const base64Content = Buffer.from(markdownContent).toString('base64');
-  const apiUrl = `https://api.github.com/repos/${repo}/contents/${path}`; // 修正: repo を使用
+  // GitHub APIのパスにはURLエンコードが必要（特にスペース）
+  const encodedPath = path.split('/').map(segment => encodeURIComponent(segment)).join('/');
+  const apiUrl = `https://api.github.com/repos/${repo}/contents/${encodedPath}`;
+
+  console.log(`[GitHub] Attempting to save to: ${apiUrl}`);
 
   try {
     // 既存のファイルの SHA を取得（上書き・コンフリクト回避用）
