@@ -30,6 +30,10 @@ app.get('/', (req, res) => {
 // Telegram API メソッド
 const telegramApi = `https://api.telegram.org/bot${TELEGRAM_TOKEN}`;
 
+// GitHub 設定 (承認連携用)
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
+const GITHUB_REPO = process.env.GITHUB_REPO; // "username/repo"
+
 // メッセージ処理エンジン
 async function processMessage(text) {
   if (!ANTHROPIC_API_KEY || ANTHROPIC_API_KEY === 'MISSING_KEY') {
@@ -39,21 +43,88 @@ async function processMessage(text) {
     const response = await anthropic.messages.create({
       model: "claude-3-5-sonnet-20240620",
       max_tokens: 1024,
-      system: "あなたは Hizen sui株式会社（肥前翆）のアシスタント AI です。会社は肥前（佐賀）の陶磁器や金継ぎを欧州のラグジュアリー市場へ展開しています。代表は高校時代から環境問題に取り組み、以前は昆虫食事業（iF株式会社）を行っていましたが、現在は伝統工芸の再定義に注力しています。主要な実績として、フォーシーズンズホテル丸の内の『SÉZANNE』との契約があります。",
+      system: "あなたは Hizen sui株式会社（肥前翆）のアシスタント AI です。会社は肥前（佐賀）の陶磁器や金継ぎを欧州のラグジュアリー市場へ展開しています。代表は高校時代から環境問題に取り組みが、現在は伝統工芸の再定義に注力しています。",
       messages: [{ role: "user", content: text }],
     });
     return response.content[0].text;
   } catch (error) {
     console.error('Claude API Error:', error);
-    // 詳細なエラー内容を返信に含める（デバッグ用）
     const errorDetail = error.response ? JSON.stringify(error.response.data) : error.message;
     return `申し訳ありません。エラーが発生しました。\n詳細: ${errorDetail}`;
   }
 }
 
+// 承認状態を GitHub リポジトリに保存する関数
+async function saveApprovalStatus(workflowId, status) {
+  if (!GITHUB_TOKEN || !GITHUB_REPO) {
+    console.error('GITHUB_TOKEN or GITHUB_REPO is missing');
+    return false;
+  }
+
+  const path = `data/approvals/${workflowId}.json`;
+  const content = Buffer.from(JSON.stringify({
+    status: status,
+    timestamp: new Date().toISOString()
+  })).toString('base64');
+
+  try {
+    // 既存のファイルの SHA を取得
+    let sha;
+    try {
+      const getRes = await axios.get(`https://api.github.com/repos/${GITHUB_REPO}/contents/${path}`, {
+        headers: { Authorization: `token ${GITHUB_TOKEN}` }
+      });
+      sha = getRes.data.sha;
+    } catch (e) {
+      // ファイルが存在しない場合は新規作成
+    }
+
+    await axios.put(`https://api.github.com/repos/${GITHUB_REPO}/contents/${path}`, {
+      message: `chore: update approval status for ${workflowId} [${status}]`,
+      content: content,
+      sha: sha
+    }, {
+      headers: { Authorization: `token ${GITHUB_TOKEN}` }
+    });
+    return true;
+  } catch (error) {
+    console.error('GitHub API Error:', error.response ? error.response.data : error.message);
+    return false;
+  }
+}
+
 // Webhook エンドポイント
 app.post(`/webhook/${TELEGRAM_TOKEN}`, async (req, res) => {
-  const { message } = req.body;
+  const { message, callback_query } = req.body;
+
+  // ボタン押下（Callback Query）の処理
+  if (callback_query) {
+    const callbackData = callback_query.data; // "approve:wf123" or "reject:wf123"
+    const [action, workflowId] = callbackData.split(':');
+    const chatId = callback_query.message.chat.id;
+    const messageId = callback_query.message.message_id;
+
+    console.log(`Callback received: ${action} for ${workflowId}`);
+
+    const success = await saveApprovalStatus(workflowId, action === 'approve' ? 'approved' : 'rejected');
+
+    const resultText = success
+      ? `✅ ${action === 'approve' ? '承認' : '却下'} を受け付けました。`
+      : `❌ 通信エラーが発生しました。`;
+
+    // ボタンを消去して結果を表示
+    try {
+      await axios.post(`${telegramApi}/editMessageText`, {
+        chat_id: chatId,
+        message_id: messageId,
+        text: `${callback_query.message.text}\n\n${resultText}`
+      });
+    } catch (error) {
+      console.error('Telegram Edit Error:', error);
+    }
+
+    return res.sendStatus(200);
+  }
 
   if (message && message.text) {
     const chatId = message.chat.id;
@@ -61,16 +132,12 @@ app.post(`/webhook/${TELEGRAM_TOKEN}`, async (req, res) => {
 
     console.log(`Received message from ${chatId}: ${incomingText}`);
 
-    // /start の場合は、Claude に「挨拶をして」という文脈で処理させるか、
-    // あるいはそのまま Claude に渡します。ここではシンプルにそのまま渡します。
     if (incomingText === '/start') {
       incomingText = "こんにちは。自己紹介をして、何ができるか教えてください。";
     }
 
-    // Claude でメッセージを処理
     const responseText = await processMessage(incomingText);
 
-    // Telegram に返信を送信
     try {
       await axios.post(`${telegramApi}/sendMessage`, {
         chat_id: chatId,
