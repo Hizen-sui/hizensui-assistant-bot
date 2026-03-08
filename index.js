@@ -60,12 +60,11 @@ app.get('/', (req, res) => {
 // Telegram API メソッド
 const telegramApi = `https://api.telegram.org/bot${TELEGRAM_TOKEN}`;
 
-// GitHub 設定 (共通)
-const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
-const GITHUB_REPO = process.env.GITHUB_REPO;
-
-if (!GITHUB_TOKEN) console.warn('⚠️ Warning: GITHUB_TOKEN is not defined');
-if (!GITHUB_REPO) console.warn('⚠️ Warning: GITHUB_REPO is not defined');
+// GitHub 設定 (取得用ヘルパー)
+const getGithubConfig = () => ({
+  token: process.env.GITHUB_TOKEN,
+  repo: process.env.GITHUB_REPO
+});
 
 // 新規: メッセージを複数メッセージに分割送信
 async function sendSplitMessages(chatId, text, maxLength = 4096, customToken = null) {
@@ -224,9 +223,7 @@ async function saveApprovalStatus(workflowId, status) {
  * @param {string} userReply ユーザーの返信
  */
 async function saveIdeaToNewProjects(originalIdea, userReply) {
-  // スコープ外で undefined になるのを防ぐため、関数内でも再確認/再取得を試みる
-  const token = GITHUB_TOKEN || process.env.GITHUB_TOKEN;
-  const repo = GITHUB_REPO || process.env.GITHUB_REPO;
+  const { token, repo } = getGithubConfig();
 
   if (!token || !repo) {
     console.error(`[GitHub] Critical error: Missing config. Token: ${!!token}, Repo: ${repo}`);
@@ -416,11 +413,12 @@ app.post(`/webhook/${FINAL_INNOVATOR_TOKEN}`, async (req, res) => {
         console.log(`[Innovator] Received reply to an idea: ${incomingText}`);
 
         // 診断メッセージを送信
-        const currentRepo = process.env.GITHUB_REPO || GITHUB_REPO || "NOT_FOUND";
+        const { repo } = getGithubConfig();
+        const displayRepo = repo || "NOT_FOUND";
         try {
           await axios.post(`https://api.telegram.org/bot${FINAL_INNOVATOR_TOKEN}/sendMessage`, {
             chat_id: chatId,
-            text: `⏳ アイデアの保存処理を開始しました...\n(Repository: ${currentRepo})`,
+            text: `⏳ アイデアの保存処理を開始しました...\n(Repository: ${displayRepo})`,
           });
         } catch (e) {
           console.error('[Innovator] Failed to send diagnostic message:', e.message);
