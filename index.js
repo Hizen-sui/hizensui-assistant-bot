@@ -465,9 +465,9 @@ app.post(`/webhook/${FINAL_INNOVATOR_TOKEN}`, async (req, res) => {
 // 新規: 破壊的イノベーターエージェントのCronジョブエンドポイント
 app.get('/api/cron/disruptive-innovator', async (req, res) => {
   try {
-    const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "AIzaSyBBtv3C9e095BJz1qgvytiyB99sxxLGhmg";
-    const TARGET_CHAT_ID = process.env.MY_CHAT_ID || "8226465347";
     const CURRENT_INNOVATOR_TOKEN = process.env.INNOVATOR_BOT_TOKEN || "8348511739:AAF0xrvgcQ9jhoXjJtM8591uxHZ071Qtckg";
+    const TARGET_CHAT_ID = process.env.MY_CHAT_ID || "8226465347";
+    const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "AIzaSyBBtv3C9e095BJz1qgvytiyB99sxxLGhmg";
 
     const systemPrompt = `あなたはHizen sui EU Strategy Organizationにおける「破壊的イノベーター」です。あなたの最大の使命は、既存のマーケティングや常識の枠組みを破壊し、突拍子もないが本質を突いたアイデアを創出することです。
 【思考・行動の絶対ルール】
@@ -484,15 +484,12 @@ app.get('/api/cron/disruptive-innovator', async (req, res) => {
     const userPrompt = "本日の破壊的アイデアを5つ提案してください。";
 
     // Gemini API Request
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent?key=${GEMINI_API_KEY}`;
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro-latest:generateContent?key=${GEMINI_API_KEY}`;
 
     const payload = {
-      systemInstruction: {
-        parts: [{ text: systemPrompt }]
-      },
       contents: [{
         role: "user",
-        parts: [{ text: userPrompt }]
+        parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }]
       }],
       generationConfig: {
         temperature: 0.9,
@@ -512,7 +509,7 @@ app.get('/api/cron/disruptive-innovator', async (req, res) => {
     const finalMessage = `🌪 **[毎朝の破壊的イノベーション提案]** 🌪\n\n${generatedText}`;
 
     // 専用Botを使用して送信
-    await sendSplitMessages(TARGET_CHAT_ID, finalMessage, 4096, INNOVATOR_TOKEN);
+    await sendSplitMessages(TARGET_CHAT_ID, finalMessage, 4096, CURRENT_INNOVATOR_TOKEN);
 
     res.status(200).json({ success: true, message: "Disruptive Innovator agent executed successfully." });
   } catch (error) {
