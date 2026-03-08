@@ -248,19 +248,38 @@ ${originalIdea}
 `;
 
   const base64Content = Buffer.from(markdownContent).toString('base64');
+  const apiUrl = `https://api.github.com/repos/${GITHUB_REPO}/contents/${path}`;
 
   try {
-    await axios.put(`https://api.github.com/repos/${GITHUB_REPO}/contents/${path}`, {
+    // 既存のファイルの SHA を取得（上書き・コンフリクト回避用）
+    let sha;
+    try {
+      const getRes = await axios.get(apiUrl, {
+        headers: { Authorization: `token ${GITHUB_TOKEN}` }
+      });
+      sha = getRes.data.sha;
+      console.log(`[GitHub] Existing file found (SHA: ${sha}). Updating...`);
+    } catch (e) {
+      // 404 なら新規作成なので問題なし
+      if (e.response && e.response.status !== 404) {
+        console.warn(`[GitHub] Failed to check existing file: ${e.message}`);
+      }
+    }
+
+    await axios.put(apiUrl, {
       message: `feat: add new project idea from Telegram [${conceptName}]`,
-      content: base64Content
+      content: base64Content,
+      sha: sha // SHAがあれば更新、なければ新規作成
     }, {
       headers: { Authorization: `token ${GITHUB_TOKEN}` }
     });
+
     console.log(`✅ Idea saved to GitHub: ${path}`);
     return fileName;
   } catch (error) {
     const errorMsg = error.response ? JSON.stringify(error.response.data) : error.message;
     console.error('GitHub API Error (saveIdea):', errorMsg);
+    // エラーオブジェクトを返して呼び出し元で詳細を表示できるようにする（将来用）
     return false;
   }
 }
