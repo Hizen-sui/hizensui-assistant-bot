@@ -389,8 +389,18 @@ app.post(`/webhook/${FINAL_INNOVATOR_TOKEN}`, async (req, res) => {
       // 返信かどうかを確認
       if (message.reply_to_message) {
         console.log(`[Innovator] Received reply to an idea: ${incomingText}`);
-        const originalIdea = message.reply_to_message.text;
 
+        // 診断メッセージを送信
+        try {
+          await axios.post(`https://api.telegram.org/bot${FINAL_INNOVATOR_TOKEN}/sendMessage`, {
+            chat_id: chatId,
+            text: `⏳ アイデアの保存処理を開始しました... (GitHub: ${GITHUB_REPO})`,
+          });
+        } catch (e) {
+          console.error('[Innovator] Failed to send diagnostic message:', e.message);
+        }
+
+        const originalIdea = message.reply_to_message.text;
         const fileName = await saveIdeaToNewProjects(originalIdea, incomingText);
 
         if (fileName) {
@@ -408,6 +418,12 @@ app.post(`/webhook/${FINAL_INNOVATOR_TOKEN}`, async (req, res) => {
         await axios.post(`https://api.telegram.org/bot${FINAL_INNOVATOR_TOKEN}/sendMessage`, {
           chat_id: chatId,
           text: `🌪 **Disruptive Innovator Feedback Collector**\n\n提案されたアイデアに返信（Reply）すると、自動的に「00_Company/04_new projects」フォルダに保存されます。`,
+        });
+      } else {
+        // 通常のメッセージ（返信ではない）
+        await axios.post(`https://api.telegram.org/bot${FINAL_INNOVATOR_TOKEN}/sendMessage`, {
+          chat_id: chatId,
+          text: `👋 アイデアを保存するには、対象のメッセージに対して「返信（Reply）」を行ってください。`,
         });
       }
     }
