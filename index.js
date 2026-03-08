@@ -41,7 +41,7 @@ async function processMessage(text) {
   }
   try {
     const response = await anthropic.messages.create({
-      model: "claude-3-5-sonnet-latest",
+      model: "claude-3-haiku-20240307",
       max_tokens: 1024,
       system: "あなたは Hizen sui株式会社（肥前翆）のアシスタント AI です。会社は肥前（佐賀）の陶磁器や金継ぎを欧州のラグジュアリー市場へ展開しています。代表は高校時代から環境問題に取り組みが、現在は伝統工芸の再定義に注力しています。",
       messages: [{ role: "user", content: text }],
