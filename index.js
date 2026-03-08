@@ -14,8 +14,11 @@ const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || process.env.claudeAntholopic_API_Key;
 const PORT = process.env.PORT || 3000;
 
-if (!TELEGRAM_TOKEN || !ANTHROPIC_API_KEY) {
-  console.error('Error: TELEGRAM_BOT_TOKEN or ANTHROPIC_API_KEY is not defined');
+if (!TELEGRAM_TOKEN) {
+  console.error('❌ Error: TELEGRAM_BOT_TOKEN is not defined');
+}
+if (!ANTHROPIC_API_KEY) {
+  console.error('❌ Error: ANTHROPIC_API_KEY is not defined');
 }
 
 // Anthropic クライアントの初期化
@@ -23,10 +26,24 @@ const anthropic = new Anthropic({
   apiKey: ANTHROPIC_API_KEY || 'MISSING_KEY',
 });
 
-// 新規: カスタムモジュールの初期化
-const commandParser = new CommandParser();
-const searchEngine = new SearchEngine();
-const conversationManager = new ConversationManager();
+// カスタムモジュールの初期化
+let commandParser, searchEngine, conversationManager;
+try {
+  commandParser = new CommandParser();
+  searchEngine = new SearchEngine();
+  conversationManager = new ConversationManager();
+  console.log('✅ All modules initialized');
+} catch (error) {
+  console.error('❌ Module initialization failed:', error.message);
+}
+
+// グローバルエラーハンドリング
+process.on('uncaughtException', (err) => {
+  console.error('💥 Uncaught Exception:', err);
+});
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('💥 Unhandled Rejection at:', promise, 'reason:', reason);
+});
 
 const app = express();
 app.use(bodyParser.json());

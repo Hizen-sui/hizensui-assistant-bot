@@ -13,7 +13,9 @@ const path = require('path');
 class SearchEngine {
   constructor(indexDir = '../data/indexes') {
     this.indexDir = path.resolve(__dirname, indexDir);
-    this.baseDir = '/Users/eguchigaijou/0. AI Code list';
+    // Vercel 環境では __dirname から相対的にプロジェクトルートを特定する
+    // ローカル環境との互換性のために環境変数 HIZENSUI_BASE_DIR もサポート
+    this.baseDir = process.env.HIZENSUI_BASE_DIR || path.resolve(__dirname, '../../');
 
     // インデックスをメモリに読み込み
     this.loadIndexes();

@@ -8,13 +8,20 @@ const path = require('path');
 
 class ConversationManager {
   constructor(dataDir = '../data/conversations') {
-    this.dataDir = path.resolve(__dirname, dataDir);
+    // Vercel 環境では /tmp を使用する（プロジェクトディレクトリは読み取り専用のため）
+    const baseDataDir = process.env.VERCEL ? '/tmp/conversations' : path.resolve(__dirname, dataDir);
+    this.dataDir = baseDataDir;
     this.maxTurns = 10; // 最大保持ターン数
     this.maxSize = 1024 * 1024; // 1MB上限
 
     // ディレクトリ確保
-    if (!fs.existsSync(this.dataDir)) {
-      fs.mkdirSync(this.dataDir, { recursive: true });
+    try {
+      if (!fs.existsSync(this.dataDir)) {
+        fs.mkdirSync(this.dataDir, { recursive: true });
+        console.log(`✅ 会話データディレクトリ作成: ${this.dataDir}`);
+      }
+    } catch (error) {
+      console.error(`❌ ディレクトリ作成失敗 (${this.dataDir}):`, error.message);
     }
   }
 
