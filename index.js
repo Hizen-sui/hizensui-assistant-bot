@@ -12,6 +12,7 @@ const ConversationManager = require('./src/ConversationManager');
 // 環境変数の取得
 const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || process.env.claudeAntholopic_API_Key;
+const INNOVATOR_TOKEN = process.env.INNOVATOR_BOT_TOKEN;
 const PORT = process.env.PORT || 3000;
 
 if (!TELEGRAM_TOKEN) {
@@ -19,6 +20,9 @@ if (!TELEGRAM_TOKEN) {
 }
 if (!ANTHROPIC_API_KEY) {
   console.error('❌ Error: ANTHROPIC_API_KEY is not defined');
+}
+if (!INNOVATOR_TOKEN) {
+  console.warn('⚠️ Warning: INNOVATOR_BOT_TOKEN is not defined in .env');
 }
 
 // Anthropic クライアントの初期化
@@ -225,7 +229,7 @@ async function saveIdeaToNewProjects(originalIdea, userReply) {
   // アイデア名（コンセプト名）を抽出する試み
   const conceptMatch = originalIdea.match(/⚡️ 破壊的コンセプト名: (.*)/);
   const conceptName = conceptMatch ? conceptMatch[1].trim() : "Untitled Idea";
-  
+
   // ファイル名の生成 (YYYYMMDD_ConceptName.md)
   const dateStr = new Date().toISOString().split('T')[0].replace(/-/g, '');
   const fileName = `${dateStr}_${conceptName.replace(/[\/\\?%*:|"<>]/g, '_')}.md`;
@@ -252,9 +256,11 @@ ${originalIdea}
     }, {
       headers: { Authorization: `token ${GITHUB_TOKEN}` }
     });
+    console.log(`✅ Idea saved to GitHub: ${path}`);
     return fileName;
   } catch (error) {
-    console.error('GitHub API Error (saveIdea):', error.response ? error.response.data : error.message);
+    const errorMsg = error.response ? JSON.stringify(error.response.data) : error.message;
+    console.error('GitHub API Error (saveIdea):', errorMsg);
     return false;
   }
 }
@@ -370,40 +376,46 @@ app.post(`/webhook/${TELEGRAM_TOKEN}`, async (req, res) => {
 });
 
 // 新規: 破壊的イノベーターボット専用のWebhookエンドポイント
-const INNOVATOR_TOKEN = process.env.INNOVATOR_BOT_TOKEN || "8348511739:AAF0xrvgcQ9jhoXjJtM8591uxHZ071Qtckg";
-app.post(`/webhook/${INNOVATOR_TOKEN}`, async (req, res) => {
+const FINAL_INNOVATOR_TOKEN = process.env.INNOVATOR_BOT_TOKEN || "8348511739:AAF0xrvgcQ9jhoXjJtM8591uxHZ071Qtckg";
+
+app.post(`/webhook/${FINAL_INNOVATOR_TOKEN}`, async (req, res) => {
   const { message } = req.body;
 
-  if (message && message.text) {
-    const chatId = message.chat.id;
-    const incomingText = message.text;
+  try {
+    if (message && message.text) {
+      const chatId = message.chat.id;
+      const incomingText = message.text;
 
-    // 返信かどうかを確認
-    if (message.reply_to_message) {
-      console.log(`Received reply to an idea: ${incomingText}`);
-      const originalIdea = message.reply_to_message.text;
-      
-      const fileName = await saveIdeaToNewProjects(originalIdea, incomingText);
+      // 返信かどうかを確認
+      if (message.reply_to_message) {
+        console.log(`[Innovator] Received reply to an idea: ${incomingText}`);
+        const originalIdea = message.reply_to_message.text;
 
-      if (fileName) {
-        await axios.post(`https://api.telegram.org/bot${INNOVATOR_TOKEN}/sendMessage`, {
+        const fileName = await saveIdeaToNewProjects(originalIdea, incomingText);
+
+        if (fileName) {
+          await axios.post(`https://api.telegram.org/bot${FINAL_INNOVATOR_TOKEN}/sendMessage`, {
+            chat_id: chatId,
+            text: `✅ アイデアを保存しました！\nファイル名: ${fileName}\n場所: 00_Company/04_new projects/`,
+          });
+        } else {
+          await axios.post(`https://api.telegram.org/bot${FINAL_INNOVATOR_TOKEN}/sendMessage`, {
+            chat_id: chatId,
+            text: `❌ 保存に失敗しました。GitHubの設定またはログを確認してください。`,
+          });
+        }
+      } else if (incomingText === '/start') {
+        await axios.post(`https://api.telegram.org/bot${FINAL_INNOVATOR_TOKEN}/sendMessage`, {
           chat_id: chatId,
-          text: `✅ アイデアを保存しました！\nファイル名: ${fileName}\n場所: 00_Company/04_new projects/`,
-        });
-      } else {
-        await axios.post(`https://api.telegram.org/bot${INNOVATOR_TOKEN}/sendMessage`, {
-          chat_id: chatId,
-          text: `❌ 保存に失敗しました。GitHubの設定を確認してください。`,
+          text: `🌪 **Disruptive Innovator Feedback Collector**\n\n提案されたアイデアに返信（Reply）すると、自動的に「00_Company/04_new projects」フォルダに保存されます。`,
         });
       }
-    } else if (incomingText === '/start') {
-      await axios.post(`https://api.telegram.org/bot${INNOVATOR_TOKEN}/sendMessage`, {
-        chat_id: chatId,
-        text: `🌪 **Disruptive Innovator Feedback Collector**\n\n提案されたアイデアに返信（Reply）すると、自動的に「00_Company/04_new projects」フォルダに保存されます。`,
-      });
     }
+  } catch (error) {
+    console.error('[Innovator] Webhook Error:', error.message);
   }
 
+  // Telegramに常に200を返して再送を防ぐ
   res.sendStatus(200);
 });
 
@@ -412,8 +424,7 @@ app.get('/api/cron/disruptive-innovator', async (req, res) => {
   try {
     const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "AIzaSyBBtv3C9e095BJz1qgvytiyB99sxxLGhmg";
     const TARGET_CHAT_ID = process.env.MY_CHAT_ID || "8226465347";
-    // 専用Botトークン
-    const INNOVATOR_TOKEN = process.env.INNOVATOR_BOT_TOKEN || "8348511739:AAF0xrvgcQ9jhoXjJtM8591uxHZ071Qtckg";
+    const CURRENT_INNOVATOR_TOKEN = process.env.INNOVATOR_BOT_TOKEN || "8348511739:AAF0xrvgcQ9jhoXjJtM8591uxHZ071Qtckg";
 
     const systemPrompt = `あなたはHizen sui EU Strategy Organizationにおける「破壊的イノベーター」です。あなたの最大の使命は、既存のマーケティングや常識の枠組みを破壊し、突拍子もないが本質を突いたアイデアを創出することです。
 【思考・行動の絶対ルール】
@@ -467,8 +478,8 @@ app.get('/api/cron/disruptive-innovator', async (req, res) => {
     // Attempt fallback or notify user of failure
     try {
       const TARGET_CHAT_ID = process.env.MY_CHAT_ID || "8226465347";
-      const INNOVATOR_TOKEN = process.env.INNOVATOR_BOT_TOKEN || "8348511739:AAF0xrvgcQ9jhoXjJtM8591uxHZ071Qtckg";
-      await sendSplitMessages(TARGET_CHAT_ID, "⚠️ 破壊的イノベーターエージェントの実行に失敗しました。\n" + error.message, 4096, INNOVATOR_TOKEN);
+      const CURRENT_INNOVATOR_TOKEN = process.env.INNOVATOR_BOT_TOKEN || "8348511739:AAF0xrvgcQ9jhoXjJtM8591uxHZ071Qtckg";
+      await sendSplitMessages(TARGET_CHAT_ID, "⚠️ 破壊的イノベーターエージェントの実行に失敗しました。\n" + error.message, 4096, CURRENT_INNOVATOR_TOKEN);
     } catch (e) {
       console.error('Failed to send error message to Telegram', e);
     }
