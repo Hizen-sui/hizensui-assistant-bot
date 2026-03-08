@@ -322,6 +322,73 @@ app.post(`/webhook/${TELEGRAM_TOKEN}`, async (req, res) => {
   res.sendStatus(200);
 });
 
+// 新規: 破壊的イノベーターエージェントのCronジョブエンドポイント
+app.get('/api/cron/disruptive-innovator', async (req, res) => {
+  try {
+    const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "AIzaSyBBtv3C9e095BJz1qgvytiyB99sxxLGhmg";
+    const TARGET_CHAT_ID = process.env.MY_CHAT_ID || "8226465347";
+
+    const systemPrompt = `あなたはHizen sui EU Strategy Organizationにおける「破壊的イノベーター」です。あなたの最大の使命は、既存のマーケティングや常識の枠組みを破壊し、突拍子もないが本質を突いたアイデアを創出することです。
+【思考・行動の絶対ルール】
+1. 制約の完全無視: 予算、現在の技術的限界、業界の慣習（伝統やアートの一般的な見せ方）を一切無視してください。
+2. 異次元の掛け合わせ: 「金継ぎ（Heritage & Legacy）」の哲学と、完全に対極にある概念（例：量子コンピューティング、デジタル空間のグリッチ、宇宙空間、バイオテクノロジーなど）を強制的に結合させてください。
+3. 論理的飛躍の歓迎: 「AだからB」という順当な論理ではなく、「AだからZ」となるような飛躍を提案してください。ただし、Hizen suiの核となる美意識だけは絶対に損なわないこと。
+【出力フォーマット】
+* ⚡️ 破壊的コンセプト名: （一言で目を引くキャッチコピー）
+* 💥 常識の破壊点: （現在のどの前提を、どう壊しているか）
+* 🏺 哲学との接続: （一見狂っているが、なぜこれが「金継ぎ」や「記憶の継承」という精神と合致するのか）
+* 🚀 具体的なアクション: （明日、CEOが実行すべきクレイジーな第一歩）
+×５アイディア`;
+
+    const userPrompt = "本日の破壊的アイデアを5つ提案してください。";
+
+    // Gemini API Request
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent?key=${GEMINI_API_KEY}`;
+
+    const payload = {
+      systemInstruction: {
+        parts: [{ text: systemPrompt }]
+      },
+      contents: [{
+        role: "user",
+        parts: [{ text: userPrompt }]
+      }],
+      generationConfig: {
+        temperature: 0.9,
+      }
+    };
+
+    const response = await axios.post(geminiUrl, payload, {
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+    const generatedText = response.data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!generatedText) {
+      throw new Error("Failed to generate text from Gemini API.");
+    }
+
+    // Wrap with header
+    const finalMessage = `🌪 **[毎朝の破壊的イノベーション提案]** 🌪\n\n${generatedText}`;
+
+    // Send via Telegram
+    await sendSplitMessages(TARGET_CHAT_ID, finalMessage);
+
+    res.status(200).json({ success: true, message: "Disruptive Innovator agent executed successfully." });
+  } catch (error) {
+    console.error('Disruptive Innovator Cron Error:', error.response ? JSON.stringify(error.response.data) : error.message);
+
+    // Attempt fallback or notify user of failure
+    try {
+      const TARGET_CHAT_ID = process.env.MY_CHAT_ID || "8226465347";
+      await sendSplitMessages(TARGET_CHAT_ID, "⚠️ 破壊的イノベーターエージェントの実行に失敗しました。\n" + error.message);
+    } catch (e) {
+      console.error('Failed to send error message to Telegram', e);
+    }
+
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // サーバーの起動 (ローカル実行時のみ)
 if (require.main === module) {
   app.listen(PORT, () => {
