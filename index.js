@@ -61,7 +61,10 @@ const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const GITHUB_REPO = process.env.GITHUB_REPO;
 
 // 新規: メッセージを複数メッセージに分割送信
-async function sendSplitMessages(chatId, text, maxLength = 4096) {
+async function sendSplitMessages(chatId, text, maxLength = 4096, customToken = null) {
+  const token = customToken || TELEGRAM_TOKEN;
+  const api = `https://api.telegram.org/bot${token}`;
+
   const messages = [];
   let currentMessage = '';
 
@@ -70,7 +73,6 @@ async function sendSplitMessages(chatId, text, maxLength = 4096) {
 
   for (const line of lines) {
     if ((currentMessage + '\n' + line).length > maxLength) {
-      // 現在のメッセージが満杯なら送信
       if (currentMessage) {
         messages.push(currentMessage.trim());
       }
@@ -80,20 +82,17 @@ async function sendSplitMessages(chatId, text, maxLength = 4096) {
     }
   }
 
-  // 最後のメッセージを追加
   if (currentMessage) {
     messages.push(currentMessage.trim());
   }
 
-  // 各メッセージを送信
   for (const msg of messages) {
     try {
-      await axios.post(`${telegramApi}/sendMessage`, {
+      await axios.post(`${api}/sendMessage`, {
         chat_id: chatId,
         text: msg,
         parse_mode: 'HTML',
       });
-      // Telegram API のレート制限を回避
       await new Promise(resolve => setTimeout(resolve, 100));
     } catch (error) {
       console.error('Telegram send error:', error.message);
@@ -327,6 +326,8 @@ app.get('/api/cron/disruptive-innovator', async (req, res) => {
   try {
     const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "AIzaSyBBtv3C9e095BJz1qgvytiyB99sxxLGhmg";
     const TARGET_CHAT_ID = process.env.MY_CHAT_ID || "8226465347";
+    // 専用Botトークン
+    const INNOVATOR_TOKEN = process.env.INNOVATOR_BOT_TOKEN || "8348511739:AAF0xrvgcQ9jhoXjJtM8591uxHZ071Qtckg";
 
     const systemPrompt = `あなたはHizen sui EU Strategy Organizationにおける「破壊的イノベーター」です。あなたの最大の使命は、既存のマーケティングや常識の枠組みを破壊し、突拍子もないが本質を突いたアイデアを創出することです。
 【思考・行動の絶対ルール】
@@ -370,8 +371,8 @@ app.get('/api/cron/disruptive-innovator', async (req, res) => {
     // Wrap with header
     const finalMessage = `🌪 **[毎朝の破壊的イノベーション提案]** 🌪\n\n${generatedText}`;
 
-    // Send via Telegram
-    await sendSplitMessages(TARGET_CHAT_ID, finalMessage);
+    // 専用Botを使用して送信
+    await sendSplitMessages(TARGET_CHAT_ID, finalMessage, 4096, INNOVATOR_TOKEN);
 
     res.status(200).json({ success: true, message: "Disruptive Innovator agent executed successfully." });
   } catch (error) {
@@ -380,7 +381,8 @@ app.get('/api/cron/disruptive-innovator', async (req, res) => {
     // Attempt fallback or notify user of failure
     try {
       const TARGET_CHAT_ID = process.env.MY_CHAT_ID || "8226465347";
-      await sendSplitMessages(TARGET_CHAT_ID, "⚠️ 破壊的イノベーターエージェントの実行に失敗しました。\n" + error.message);
+      const INNOVATOR_TOKEN = process.env.INNOVATOR_BOT_TOKEN || "8348511739:AAF0xrvgcQ9jhoXjJtM8591uxHZ071Qtckg";
+      await sendSplitMessages(TARGET_CHAT_ID, "⚠️ 破壊的イノベーターエージェントの実行に失敗しました。\n" + error.message, 4096, INNOVATOR_TOKEN);
     } catch (e) {
       console.error('Failed to send error message to Telegram', e);
     }
