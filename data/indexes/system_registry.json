@@ -1,0 +1,67 @@
+{
+  "generated": "2026-03-08T09:26:10.529Z",
+  "systems": {
+    "eu-strategy-agents": {
+      "name": "Instagram自動化 + エージェント組織",
+      "description": "Instagramの成長戦略自動化、トレンド分析、エージェント実行",
+      "path": "01_Systems/eu-strategy-agents",
+      "key_features": [
+        "Instagram automation",
+        "Agent organization",
+        "MCP integration",
+        "Trend analysis"
+      ]
+    },
+    "hizensui-assistant-bot": {
+      "name": "Telegramボット",
+      "description": "Claude APIと統合したTelegramチャットボット、承認ワークフロー",
+      "path": "01_Systems/hizensui-assistant-bot",
+      "key_features": [
+        "Telegram integration",
+        "Claude API",
+        "Webhook handling"
+      ]
+    },
+    "notion-automation": {
+      "name": "Notion自動同期",
+      "description": "Notion DBをGit Markdownに自動同期",
+      "path": "01_Systems/notion automation",
+      "key_features": [
+        "Notion API",
+        "Git sync",
+        "Markdown export"
+      ]
+    },
+    "google-automation": {
+      "name": "Google Workspace統合",
+      "description": "Gmail、Google Drive、Google Sheetsの自動化CLI",
+      "path": "01_Systems/Google automation",
+      "key_features": [
+        "Gmail automation",
+        "Google Drive",
+        "Google Sheets",
+        "OAuth2"
+      ]
+    },
+    "invoice-downloader": {
+      "name": "請求書自動ダウンロード",
+      "description": "GmailとGoogleドライブから請求書を自動収集",
+      "path": "01_Systems/invoice-downloader",
+      "key_features": [
+        "Email automation",
+        "Invoice collection",
+        "Browser automation"
+      ]
+    },
+    "company-info": {
+      "name": "企業情報",
+      "description": "Hizen sui 企業情報、戦略、ブランドアイデンティティ",
+      "path": "00_Company",
+      "key_features": [
+        "Company strategy",
+        "Brand identity",
+        "Financial info"
+      ]
+    }
+  }
+}

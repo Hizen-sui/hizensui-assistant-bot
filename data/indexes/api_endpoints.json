@@ -1,0 +1,11 @@
+{
+  "generated": "2026-03-08T09:26:10.537Z",
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/",
+      "file": "hizensui-assistant-bot/index.js"
+    }
+  ],
+  "commands": []
+}
