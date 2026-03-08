@@ -211,6 +211,54 @@ async function saveApprovalStatus(workflowId, status) {
   }
 }
 
+/**
+ * 新規: 破壊的イノベーターボットからのアイデアを保存する
+ * @param {string} originalIdea 破壊的イノベーターのテキスト
+ * @param {string} userReply ユーザーの返信
+ */
+async function saveIdeaToNewProjects(originalIdea, userReply) {
+  if (!GITHUB_TOKEN || !GITHUB_REPO) {
+    console.error('GITHUB_TOKEN or GITHUB_REPO is missing');
+    return false;
+  }
+
+  // アイデア名（コンセプト名）を抽出する試み
+  const conceptMatch = originalIdea.match(/⚡️ 破壊的コンセプト名: (.*)/);
+  const conceptName = conceptMatch ? conceptMatch[1].trim() : "Untitled Idea";
+  
+  // ファイル名の生成 (YYYYMMDD_ConceptName.md)
+  const dateStr = new Date().toISOString().split('T')[0].replace(/-/g, '');
+  const fileName = `${dateStr}_${conceptName.replace(/[\/\\?%*:|"<>]/g, '_')}.md`;
+  const path = `00_Company/04_new projects/${fileName}`;
+
+  const markdownContent = `# New Project Idea: ${conceptName}
+
+## 💡 User Feedback
+${userReply}
+
+## 🌪 Original Disruptive Idea
+${originalIdea}
+
+---
+*Created via Telegram Reply on ${new Date().toLocaleString('ja-JP')}*
+`;
+
+  const base64Content = Buffer.from(markdownContent).toString('base64');
+
+  try {
+    await axios.put(`https://api.github.com/repos/${GITHUB_REPO}/contents/${path}`, {
+      message: `feat: add new project idea from Telegram [${conceptName}]`,
+      content: base64Content
+    }, {
+      headers: { Authorization: `token ${GITHUB_TOKEN}` }
+    });
+    return fileName;
+  } catch (error) {
+    console.error('GitHub API Error (saveIdea):', error.response ? error.response.data : error.message);
+    return false;
+  }
+}
+
 // Webhook エンドポイント
 app.post(`/webhook/${TELEGRAM_TOKEN}`, async (req, res) => {
   const { message, callback_query } = req.body;
@@ -314,6 +362,44 @@ app.post(`/webhook/${TELEGRAM_TOKEN}`, async (req, res) => {
       await axios.post(`${telegramApi}/sendMessage`, {
         chat_id: chatId,
         text: '❌ 処理中にエラーが発生しました。しばらくしてからもう一度お試しください。',
+      });
+    }
+  }
+
+  res.sendStatus(200);
+});
+
+// 新規: 破壊的イノベーターボット専用のWebhookエンドポイント
+const INNOVATOR_TOKEN = process.env.INNOVATOR_BOT_TOKEN || "8348511739:AAF0xrvgcQ9jhoXjJtM8591uxHZ071Qtckg";
+app.post(`/webhook/${INNOVATOR_TOKEN}`, async (req, res) => {
+  const { message } = req.body;
+
+  if (message && message.text) {
+    const chatId = message.chat.id;
+    const incomingText = message.text;
+
+    // 返信かどうかを確認
+    if (message.reply_to_message) {
+      console.log(`Received reply to an idea: ${incomingText}`);
+      const originalIdea = message.reply_to_message.text;
+      
+      const fileName = await saveIdeaToNewProjects(originalIdea, incomingText);
+
+      if (fileName) {
+        await axios.post(`https://api.telegram.org/bot${INNOVATOR_TOKEN}/sendMessage`, {
+          chat_id: chatId,
+          text: `✅ アイデアを保存しました！\nファイル名: ${fileName}\n場所: 00_Company/04_new projects/`,
+        });
+      } else {
+        await axios.post(`https://api.telegram.org/bot${INNOVATOR_TOKEN}/sendMessage`, {
+          chat_id: chatId,
+          text: `❌ 保存に失敗しました。GitHubの設定を確認してください。`,
+        });
+      }
+    } else if (incomingText === '/start') {
+      await axios.post(`https://api.telegram.org/bot${INNOVATOR_TOKEN}/sendMessage`, {
+        chat_id: chatId,
+        text: `🌪 **Disruptive Innovator Feedback Collector**\n\n提案されたアイデアに返信（Reply）すると、自動的に「00_Company/04_new projects」フォルダに保存されます。`,
       });
     }
   }
