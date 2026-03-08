@@ -252,7 +252,7 @@ ${originalIdea}
 `;
 
   const base64Content = Buffer.from(markdownContent).toString('base64');
-  const apiUrl = `https://api.github.com/repos/${GITHUB_REPO}/contents/${path}`;
+  const apiUrl = `https://api.github.com/repos/${repo}/contents/${path}`; // 修正: repo を使用
 
   try {
     // 既存のファイルの SHA を取得（上書き・コンフリクト回避用）
@@ -275,7 +275,7 @@ ${originalIdea}
       content: base64Content,
       sha: sha // SHAがあれば更新、なければ新規作成
     }, {
-      headers: { Authorization: `token ${GITHUB_TOKEN}` }
+      headers: { Authorization: `token ${token}` } // 修正: token を使用
     });
 
     console.log(`✅ Idea saved to GitHub: ${path}`);
@@ -412,6 +412,17 @@ app.post(`/webhook/${FINAL_INNOVATOR_TOKEN}`, async (req, res) => {
       if (message.reply_to_message) {
         console.log(`[Innovator] Received reply to an idea: ${incomingText}`);
 
+        // 【再追加】診断メッセージ（進捗が見えないと不安なため）
+        const { repo } = getGithubConfig();
+        try {
+          await axios.post(`https://api.telegram.org/bot${FINAL_INNOVATOR_TOKEN}/sendMessage`, {
+            chat_id: chatId,
+            text: `⏳ アイデアの保存処理を開始しました... (Repo: ${repo || '未設定'})`,
+          });
+        } catch (e) {
+          console.error('[Innovator] Failed to send diagnostic message:', e.message);
+        }
+
         const originalIdea = message.reply_to_message.text;
         const result = await saveIdeaToNewProjects(originalIdea, incomingText);
 
@@ -423,7 +434,7 @@ app.post(`/webhook/${FINAL_INNOVATOR_TOKEN}`, async (req, res) => {
         } else {
           await axios.post(`https://api.telegram.org/bot${FINAL_INNOVATOR_TOKEN}/sendMessage`, {
             chat_id: chatId,
-            text: `❌ 保存に失敗しました。\n原因: ${result.error || '不明なエラー'}\n\nGitHubの権限（GITHUB_TOKEN）またはリポジトリ名（GITHUB_REPO）が正しいか、Vercelの環境変数を確認してください。`,
+            text: `❌ 保存に失敗しました。\n原因: ${result.error || '不明なエラー'}\n\nGitHubの権限またはVercelの環境変数をご確認ください。`,
           });
         }
       } else if (incomingText === '/start') {
