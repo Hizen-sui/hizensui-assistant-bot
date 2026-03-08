@@ -412,18 +412,6 @@ app.post(`/webhook/${FINAL_INNOVATOR_TOKEN}`, async (req, res) => {
       if (message.reply_to_message) {
         console.log(`[Innovator] Received reply to an idea: ${incomingText}`);
 
-        // 診断メッセージを送信
-        const { repo } = getGithubConfig();
-        const displayRepo = repo || "NOT_FOUND";
-        try {
-          await axios.post(`https://api.telegram.org/bot${FINAL_INNOVATOR_TOKEN}/sendMessage`, {
-            chat_id: chatId,
-            text: `⏳ アイデアの保存処理を開始しました...\n(Repository: ${displayRepo})`,
-          });
-        } catch (e) {
-          console.error('[Innovator] Failed to send diagnostic message:', e.message);
-        }
-
         const originalIdea = message.reply_to_message.text;
         const result = await saveIdeaToNewProjects(originalIdea, incomingText);
 
