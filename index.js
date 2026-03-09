@@ -496,11 +496,14 @@ app.get('/report/:filename', async (req, res) => {
       .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;") // エスケープ
       .replace(/^## (.*$)/gim, '<h2>$1</h2>')
       .replace(/^# (.*$)/gim, '<h1>$1</h1>')
-      .replace(/\\*\\*(.*?)\\*\\*/gim, '<strong>$1</strong>')
+      .replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>')
       .replace(/`([^`]*)`/gim, '<code>$1</code>')
-      .replace(/^\\- (.*$)/gim, '<li>$1</li>')
-      .replace(/\\n\\n/g, '</p><p>')
-      .replace(/\\n/g, '<br/>');
+      .replace(/^- (.*$)/gim, '<li>$1</li>')
+      .replace(/\r?\n\r?\n/g, '</p><p>')
+      .replace(/\r?\n/g, '<br/>');
+
+    // 全体を <p> で囲む
+    htmlContent = `<p>${htmlContent}</p>`;
 
     // 簡易的なリスト整形: 連続する li を ul で囲む
     htmlContent = htmlContent.replace(/(<li>.*<\/li>)/sim, '<ul>$1</ul>');
