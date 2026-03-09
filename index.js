@@ -474,7 +474,7 @@ app.get('/report/:filename', async (req, res) => {
   }
 
   // ファイル名のバリデーション（簡易的なディレクトリトラバーサル対策）
-  if (!filename.match(/^[a-zA-Z0-9_\\-\\.]+$/)) {
+  if (filename.includes('/') || filename.includes('\\') || filename.includes('..')) {
     return res.status(400).send("Invalid filename.");
   }
 
