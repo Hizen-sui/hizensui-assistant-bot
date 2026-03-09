@@ -14,6 +14,8 @@ const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || process.env.claudeAntholopic_API_Key;
 const INNOVATOR_TOKEN = process.env.INNOVATOR_BOT_TOKEN;
 const PORT = process.env.PORT || 3000;
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
+const GITHUB_REPO = process.env.GITHUB_REPO;
 
 if (!TELEGRAM_TOKEN) {
   console.error('❌ Error: TELEGRAM_BOT_TOKEN is not defined');
@@ -84,7 +86,7 @@ async function sendSplitMessages(chatId, text, maxLength = 4096, customToken = n
       }
       currentMessage = line;
     } else {
-      currentMessage += (currentMessage ? '\n' : '') + line;
+      currentMessage = currentMessage ? (currentMessage + '\n' + line) : line;
     }
   }
 
@@ -462,6 +464,85 @@ app.post(`/webhook/${FINAL_INNOVATOR_TOKEN}`, async (req, res) => {
   res.sendStatus(200);
 });
 
+// 新規: Markdown レポートを HTML 化して返す Web UI エンドポイント
+app.get('/report/:filename', async (req, res) => {
+  const { filename } = req.params;
+  const { token, repo } = getGithubConfig();
+
+  if (!token || !repo) {
+    return res.status(500).send("GitHub configuration is missing.");
+  }
+
+  // ファイル名のバリデーション（簡易的なディレクトリトラバーサル対策）
+  if (!filename.match(/^[a-zA-Z0-9_\\-\\.]+$/)) {
+    return res.status(400).send("Invalid filename.");
+  }
+
+  const path = `data/reports/${filename}`;
+  const encodedPath = path.split('/').map(segment => encodeURIComponent(segment)).join('/');
+  const apiUrl = `https://api.github.com/repos/${repo}/contents/${encodedPath}`;
+
+  try {
+    const getRes = await axios.get(apiUrl, {
+      headers: { Authorization: `token ${token}` }
+    });
+
+    // Base64 デコード
+    const contentB64 = getRes.data.content;
+    const mdContent = Buffer.from(contentB64, 'base64').toString('utf-8');
+
+    // 簡易的な Markdown -> HTML 変換
+    let htmlContent = mdContent
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;") // エスケープ
+      .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+      .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+      .replace(/\\*\\*(.*?)\\*\\*/gim, '<strong>$1</strong>')
+      .replace(/`([^`]*)`/gim, '<code>$1</code>')
+      .replace(/^\\- (.*$)/gim, '<li>$1</li>')
+      .replace(/\\n\\n/g, '</p><p>')
+      .replace(/\\n/g, '<br/>');
+
+    // 簡易的なリスト整形: 連続する li を ul で囲む
+    htmlContent = htmlContent.replace(/(<li>.*<\/li>)/sim, '<ul>$1</ul>');
+
+    // HTML テンプレートに流し込む
+    const finalHtml = `<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Workflow Report - ${filename}</title>
+  <style>
+    body { font-family: 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; padding: 20px; max-width: 800px; margin: 0 auto; background-color: #121212; color: #e0e0e0; }
+    h1, h2 { color: #c8a96e; padding-bottom: 10px; margin-top: 30px; }
+    h1 { font-size: 1.8em; border-bottom: 2px solid #333; }
+    h2 { font-size: 1.4em; border-left: 3px solid #c8a96e; padding-left: 10px;}
+    strong { color: #e67e22; }
+    code { background: #2c2c2c; padding: 2px 5px; border-radius: 3px; font-family: monospace; color: #a8d0e6; }
+    ul { padding-left: 20px; }
+    li { margin-bottom: 8px; }
+    .container { background: #1e1e1e; padding: 30px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+    /* iOSデバイスにおける明朝体系フォントの調整なども可能 */
+  </style>
+</head>
+<body>
+  <div class="container">
+    ${htmlContent}
+  </div>
+</body>
+</html>`;
+
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.status(200).send(finalHtml);
+  } catch (error) {
+    if (error.response && error.response.status === 404) {
+      return res.status(404).send("Report not found or has not been uploaded yet.");
+    }
+    console.error('GitHub API Error (/report/:filename):', error.message);
+    return res.status(500).send("Failed to load report from GitHub.");
+  }
+});
+
 // 新規: 破壊的イノベーターエージェントのCronジョブエンドポイント
 app.get('/api/cron/disruptive-innovator', async (req, res) => {
   try {
@@ -508,7 +589,7 @@ app.get('/api/cron/disruptive-innovator', async (req, res) => {
     // Wrap with header
     const finalMessage = `🌪 **[毎朝の破壊的イノベーション提案]** 🌪\n\n${generatedText}`;
 
-    // 専用Botを使用して送信
+    // 専用Bot（@disruptive_innovator_bot）を使用して送信
     await sendSplitMessages(TARGET_CHAT_ID, finalMessage, 4096, CURRENT_INNOVATOR_TOKEN);
 
     res.status(200).json({ success: true, message: "Disruptive Innovator agent executed successfully." });
