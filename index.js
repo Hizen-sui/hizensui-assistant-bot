@@ -479,7 +479,8 @@ app.get('/report/:filename', async (req, res) => {
   }
 
   const path = `data/reports/${filename}`;
-  const apiUrl = `https://api.github.com/repos/${repo}/contents/${path}`;
+  const encodedPath = path.split('/').map(segment => encodeURIComponent(segment)).join('/');
+  const apiUrl = `https://api.github.com/repos/${repo}/contents/${encodedPath}`;
 
   try {
     const getRes = await axios.get(apiUrl, {
