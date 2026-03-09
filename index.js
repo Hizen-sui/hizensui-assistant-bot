@@ -14,7 +14,7 @@ const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || process.env.claudeAntholopic_API_Key;
 const INNOVATOR_TOKEN = process.env.INNOVATOR_BOT_TOKEN;
 const PORT = process.env.PORT || 3000;
-const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN || process.env.Bot_upload_token;
 const GITHUB_REPO = process.env.GITHUB_REPO;
 
 if (!TELEGRAM_TOKEN) {
@@ -64,7 +64,7 @@ const telegramApi = `https://api.telegram.org/bot${TELEGRAM_TOKEN}`;
 
 // GitHub 設定 (取得用ヘルパー)
 const getGithubConfig = () => ({
-  token: process.env.GITHUB_TOKEN,
+  token: process.env.GITHUB_TOKEN || process.env.Bot_upload_token,
   repo: process.env.GITHUB_REPO
 });
 
